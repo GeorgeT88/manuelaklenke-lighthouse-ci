@@ -28,24 +28,30 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install Lighthouse
+        run: npm install -g lighthouse
 
-      - name: Find Chrome
+      - name: Run Lighthouse on all pages
         run: |
-          which google-chrome-stable || echo "chrome-stable not found"
-          which google-chrome || echo "chrome not found"
-          which chromium-browser || echo "chromium not found"
-          google-chrome-stable --version || google-chrome --version || echo "chrome version check failed"
-
-      - name: Run Lighthouse CI
-        env:
-          CHROME_PATH: /usr/bin/google-chrome-stable
-        run: npm run lhci || true
-
-      - name: List lhci-reports
-        if: always()
-        run: ls -la lhci-reports/ || echo "lhci-reports directory not found"
+          mkdir -p reports
+          URLS=(
+            "https://manuelaklenke.com"
+            "https://manuelaklenke.com/about"
+            "https://manuelaklenke.com/portfolio"
+            "https://manuelaklenke.com/events"
+            "https://manuelaklenke.com/contact"
+          )
+          for URL in "${URLS[@]}"; do
+            SLUG=$(echo "$URL" | sed 's|https://manuelaklenke.com||' | sed 's|/||g')
+            SLUG=${SLUG:-home}
+            echo "Running Lighthouse on $URL -> reports/$SLUG.json"
+            lighthouse "$URL" \
+              --output=json \
+              --output-path="reports/$SLUG.json" \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --quiet || echo "Lighthouse failed for $URL"
+          done
+          ls -la reports/
 
       - name: Generate HTML report
         if: always()
@@ -55,17 +61,17 @@ jobs:
           const fs = require('fs');
           const path = require('path');
 
-          const reportsDir = './lhci-reports';
-          if (!fs.existsSync(reportsDir)) {
-            fs.writeFileSync('public/index.html', '<html><body><h1>Lighthouse CI Report</h1><p>No report data available — Lighthouse may have failed to run.</p></body></html>');
-            console.log('lhci-reports not found, wrote fallback page.');
+          const reportsDir = './reports';
+          const files = fs.readdirSync(reportsDir).filter(f => f.endsWith('.json'));
+
+          if (files.length === 0) {
+            fs.writeFileSync('public/index.html', '<html><body><h1>Lighthouse CI Report</h1><p>No report data available.</p></body></html>');
             process.exit(0);
           }
-          const files = fs.readdirSync(reportsDir).filter(f => f.endsWith('.json') && !f.startsWith('manifest'));
 
           const results = files.map(file => {
             const data = JSON.parse(fs.readFileSync(path.join(reportsDir, file), 'utf8'));
-            const url = data.finalUrl || data.requestedUrl;
+            const url = data.finalUrl || data.requestedUrl || file.replace('.json', '');
             const cats = data.categories;
             return {
               url,
@@ -101,7 +107,7 @@ jobs:
             .average{color:#ff9800}
             .poor{color:#f44336}
             .legend{display:flex;gap:16px;margin:16px 0;font-size:.9em}
-            .legend span{padding:4px 12px;border-radius:4px;color:#fff;font-weight:bold}
+            .legend span{padding:4px 12px;border-radius:4px;font-weight:bold}
             .legend .good{background:#4caf50;color:#fff}
             .legend .average{background:#ff9800;color:#fff}
             .legend .poor{background:#f44336;color:#fff}
@@ -121,7 +127,7 @@ jobs:
           </body></html>\`;
 
           fs.writeFileSync('public/index.html', html);
-          console.log('Report generated: public/index.html');
+          console.log('Report generated with ' + results.length + ' pages.');
           "
 
       - name: Write job summary
