@@ -1,0 +1,11 @@
+{
+  "name": "manuelaklenke-lighthouse-ci",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "@lhci/cli": "^0.14.0"
+  },
+  "scripts": {
+    "lhci": "lhci autorun"
+  }
+}
