@@ -31,14 +31,21 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Chrome
+      - name: Find Chrome
         run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+          which google-chrome-stable || echo "chrome-stable not found"
+          which google-chrome || echo "chrome not found"
+          which chromium-browser || echo "chromium not found"
+          google-chrome-stable --version || google-chrome --version || echo "chrome version check failed"
 
       - name: Run Lighthouse CI
-        run: npm run lhci
-        continue-on-error: true
+        env:
+          CHROME_PATH: /usr/bin/google-chrome-stable
+        run: npm run lhci || true
+
+      - name: List lhci-reports
+        if: always()
+        run: ls -la lhci-reports/ || echo "lhci-reports directory not found"
 
       - name: Generate HTML report
         if: always()
