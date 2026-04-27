@@ -31,6 +31,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
       - name: Run Lighthouse CI
         run: npm run lhci
         continue-on-error: true
@@ -44,6 +49,11 @@ jobs:
           const path = require('path');
 
           const reportsDir = './lhci-reports';
+          if (!fs.existsSync(reportsDir)) {
+            fs.writeFileSync('public/index.html', '<html><body><h1>Lighthouse CI Report</h1><p>No report data available — Lighthouse may have failed to run.</p></body></html>');
+            console.log('lhci-reports not found, wrote fallback page.');
+            process.exit(0);
+          }
           const files = fs.readdirSync(reportsDir).filter(f => f.endsWith('.json') && !f.startsWith('manifest'));
 
           const results = files.map(file => {
